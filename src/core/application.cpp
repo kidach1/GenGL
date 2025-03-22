@@ -18,7 +18,7 @@ Application& Application::getInstance() {
 
 Application::Application()
     : window(nullptr), running(false), currentTime(0.0f), lastTime(0.0f), deltaTime(0.0f),
-      shader(nullptr), vao(0), vbo(0) {
+      shader(nullptr), vao(0), vbo(0), model(nullptr), rotationSpeed(1.0f) {
 }
 
 Application::~Application() {
@@ -47,6 +47,14 @@ bool Application::initialize(int width, int height, const std::string& title) {
         shader = std::make_unique<Shader>();
         if (!shader->loadFromFile("assets/shaders/basic.vs", "assets/shaders/basic.fs")) {
             std::cerr << "Failed to load shaders" << std::endl;
+            return false;
+        }
+        
+        // モデルのロード
+        try {
+            model = std::make_unique<Model>("assets/models/cube.obj");
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to load model: " << e.what() << std::endl;
             return false;
         }
         
@@ -130,6 +138,7 @@ void Application::shutdown() {
         glDeleteBuffers(1, &vbo);
         vbo = 0;
     }
+    model.reset(); // モデルを先に解放（依存関係のため）
     shader.reset();
     
     if (window) {
@@ -172,39 +181,66 @@ void Application::processInput() {
 }
 
 void Application::update() {
-    // アプリケーションの状態更新（サブシステムの更新）
-    // 現時点では実装はまだありません
+    // アプリケーションの状態更新
+    
+    // モデルの回転（Y軸周り）
+    if (model) {
+        model->rotateY(rotationSpeed * deltaTime);
+    }
 }
 
 void Application::render() {
     // 画面クリア
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
-    if (shader && window) {
+    if (shader && window && model) {
         // シェーダーを使用
         shader->use();
         
-        // 変換行列設定
-        glm::mat4 model = glm::mat4(1.0f);
-        glm::mat4 view = glm::mat4(1.0f);
-        glm::mat4 projection = glm::mat4(1.0f);
+        // カメラとライトの設定
+        glm::vec3 viewPos(0.0f, 0.0f, 3.0f);
+        glm::vec3 lightPos(1.0f, 1.0f, 2.0f);
+        glm::vec3 lightColor(1.0f, 1.0f, 1.0f);
+        glm::vec3 objectColor(0.5f, 0.5f, 0.5f);
         
-        // view行列は少し後ろに移動（-3.0f）
-        view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
+        // ライト関連の設定（Phongシェーディング用）
+        shader->setVec3("viewPos", viewPos);
+        shader->setVec3("lightPos", lightPos);
+        shader->setVec3("lightColor", lightColor);
+        shader->setVec3("objectColor", objectColor);
+        shader->setFloat("ambientStrength", 0.1f);
+        shader->setFloat("specularStrength", 0.5f);
+        shader->setInt("shininess", 32);
+        
+        // 変換行列設定
+        glm::mat4 view = glm::lookAt(
+            viewPos,                      // カメラ位置
+            glm::vec3(0.0f, 0.0f, 0.0f),  // 注視点
+            glm::vec3(0.0f, 1.0f, 0.0f)   // 上方向
+        );
         
         // 投影行列（透視投影）
         float aspectRatio = window->getAspectRatio();
-        projection = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
+        glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
         
         // Uniform設定
-        shader->setMat4("model", model);
         shader->setMat4("view", view);
         shader->setMat4("projection", projection);
         
-        // VAOをバインドして三角形を描画
-        glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
-        glBindVertexArray(0);
+        // モデルの描画
+        model->draw(*shader);
+        
+        // 従来の三角形も描画（オプション）
+        if (vao != 0) {
+            // モデル行列リセット
+            glm::mat4 triangleModel = glm::mat4(1.0f);
+            triangleModel = glm::translate(triangleModel, glm::vec3(1.5f, 0.0f, 0.0f)); // 右側に配置
+            shader->setMat4("model", triangleModel);
+            
+            glBindVertexArray(vao);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+            glBindVertexArray(0);
+        }
     }
 }
 

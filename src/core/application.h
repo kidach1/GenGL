@@ -6,6 +6,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include "window.h"
 #include "../renderer/shader.h"
+#include "../renderer/model.h"
 
 namespace claude_gl {
 
@@ -119,6 +120,9 @@ private:
     std::unique_ptr<Shader> shader;    ///< シェーダープログラム
     unsigned int vao;                  ///< 頂点配列オブジェクト
     unsigned int vbo;                  ///< 頂点バッファオブジェクト
+    
+    std::unique_ptr<Model> model;      ///< 3Dモデル
+    float rotationSpeed;               ///< モデル回転速度
 };
 
 } // namespace claude_gl
