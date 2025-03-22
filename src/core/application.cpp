@@ -18,7 +18,7 @@ Application& Application::getInstance() {
 
 Application::Application()
     : window(nullptr), running(false), currentTime(0.0f), lastTime(0.0f), deltaTime(0.0f),
-      shader(nullptr), vao(0), vbo(0), model(nullptr), rotationSpeed(1.0f) {
+      shader(nullptr), model(nullptr), rotationSpeed(1.0f) {
 }
 
 Application::~Application() {
@@ -52,41 +52,11 @@ bool Application::initialize(int width, int height, const std::string& title) {
         
         // モデルのロード
         try {
-            model = std::make_unique<Model>("assets/models/cube.obj");
+            model = std::make_unique<Model>("assets/models/teapot.obj");
         } catch (const std::exception& e) {
             std::cerr << "Failed to load model: " << e.what() << std::endl;
             return false;
         }
-        
-        // 三角形のデータ設定
-        float vertices[] = {
-            // 位置                  // 色
-            -0.5f, -0.5f, 0.0f,     1.0f, 0.0f, 0.0f,  // 左下（赤）
-             0.5f, -0.5f, 0.0f,     0.0f, 1.0f, 0.0f,  // 右下（緑）
-             0.0f,  0.5f, 0.0f,     0.0f, 0.0f, 1.0f   // 上（青）
-        };
-
-        // VAOとVBOの生成と設定
-        glGenVertexArrays(1, &vao);
-        glGenBuffers(1, &vbo);
-
-        // VAOをバインドしてからVBOとattribute設定を行う
-        glBindVertexArray(vao);
-
-        // VBOにデータをバインド
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-        // 位置属性を設定
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
-
-        // 色属性を設定
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-        glEnableVertexAttribArray(1);
-
-        // VAOのバインドを解除
-        glBindVertexArray(0);
         
         // 時間の初期化
         lastTime = static_cast<float>(glfwGetTime());
@@ -130,14 +100,6 @@ void Application::shutdown() {
     running = false;
     
     // OpenGLリソースの解放
-    if (vao != 0) {
-        glDeleteVertexArrays(1, &vao);
-        vao = 0;
-    }
-    if (vbo != 0) {
-        glDeleteBuffers(1, &vbo);
-        vbo = 0;
-    }
     model.reset(); // モデルを先に解放（依存関係のため）
     shader.reset();
     
@@ -198,7 +160,7 @@ void Application::render() {
         shader->use();
         
         // カメラとライトの設定
-        glm::vec3 viewPos(0.0f, 0.0f, 3.0f);
+        glm::vec3 viewPos(0.0f, 0.0f, 10.0f); // teapot表示用にカメラを適切な距離に配置
         glm::vec3 lightPos(1.0f, 1.0f, 2.0f);
         glm::vec3 lightColor(1.0f, 1.0f, 1.0f);
         glm::vec3 objectColor(0.5f, 0.5f, 0.5f);
@@ -228,19 +190,18 @@ void Application::render() {
         shader->setMat4("projection", projection);
         
         // モデルの描画
-        model->draw(*shader);
         
-        // 従来の三角形も描画（オプション）
-        if (vao != 0) {
-            // モデル行列リセット
-            glm::mat4 triangleModel = glm::mat4(1.0f);
-            triangleModel = glm::translate(triangleModel, glm::vec3(1.5f, 0.0f, 0.0f)); // 右側に配置
-            shader->setMat4("model", triangleModel);
-            
-            glBindVertexArray(vao);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
-            glBindVertexArray(0);
-        }
+        // teapotの設定調整 - 初期回転を加えて風景を見やすくする
+        glm::mat4 initialTransform = glm::mat4(1.0f);
+        // X軸に少し回転してティーポットの口が見えるようにする
+        initialTransform = glm::rotate(initialTransform, glm::radians(-30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        
+        // 現在のモデル行列と組み合わせる
+        glm::mat4 modelMatrix = initialTransform * model->getModelMatrix();
+        shader->setMat4("model", modelMatrix);
+        
+        // モデル描画
+        model->draw(*shader);
     }
 }
 

@@ -118,8 +118,6 @@ private:
     float deltaTime;                  ///< 前回のフレームからの経過時間
     
     std::unique_ptr<Shader> shader;    ///< シェーダープログラム
-    unsigned int vao;                  ///< 頂点配列オブジェクト
-    unsigned int vbo;                  ///< 頂点バッファオブジェクト
     
     std::unique_ptr<Model> model;      ///< 3Dモデル
     float rotationSpeed;               ///< モデル回転速度
