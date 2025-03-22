@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(Claude-OpenGL VERSION 0.1.0 LANGUAGES CXX)
+project(Claude-OpenGL VERSION 0.1.0 LANGUAGES C CXX)
 
 # C++標準設定
 set(CMAKE_CXX_STANDARD 17)
@@ -17,9 +17,10 @@ include_directories(
 )
 
 # GLADライブラリ追加
-add_library(glad 
-    ${CMAKE_CURRENT_SOURCE_DIR}/libs/glad-3.3/src/gl.c
-)
+set(GLAD_C ${CMAKE_CURRENT_SOURCE_DIR}/libs/glad-3.3/src/gl.c)
+set_source_files_properties(${GLAD_C} PROPERTIES LANGUAGE C)
+
+add_library(glad STATIC ${GLAD_C})
 target_include_directories(glad PRIVATE 
     ${CMAKE_CURRENT_SOURCE_DIR}/libs/glad-3.3/include
 )
