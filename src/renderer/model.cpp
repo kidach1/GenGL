@@ -1,4 +1,4 @@
-#include "../../include/renderer/model.h"
+#include "renderer/model.h"
 #include <fstream>
 #include <sstream>
 #include <iostream>

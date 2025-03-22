@@ -4,7 +4,7 @@
 #include <string>
 #include <glad/gl.h>
 #include <glm/glm.hpp>
-#include "shader.h"
+#include "renderer/shader.h"
 
 namespace claude_gl {
 

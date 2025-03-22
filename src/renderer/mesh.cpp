@@ -1,4 +1,4 @@
-#include "../../include/renderer/mesh.h"
+#include "renderer/mesh.h"
 #include <iostream>
 
 namespace claude_gl {
