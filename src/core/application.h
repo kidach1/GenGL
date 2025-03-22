@@ -2,7 +2,10 @@
 
 #include <memory>
 #include <string>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include "window.h"
+#include "../renderer/shader.h"
 
 namespace claude_gl {
 
@@ -112,6 +115,10 @@ private:
     float currentTime;                ///< 現在の時間
     float lastTime;                   ///< 前回のフレームの時間
     float deltaTime;                  ///< 前回のフレームからの経過時間
+    
+    std::unique_ptr<Shader> shader;    ///< シェーダープログラム
+    unsigned int vao;                  ///< 頂点配列オブジェクト
+    unsigned int vbo;                  ///< 頂点バッファオブジェクト
 };
 
 } // namespace claude_gl

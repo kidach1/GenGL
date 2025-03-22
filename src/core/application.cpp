@@ -17,7 +17,8 @@ Application& Application::getInstance() {
 }
 
 Application::Application()
-    : window(nullptr), running(false), currentTime(0.0f), lastTime(0.0f), deltaTime(0.0f) {
+    : window(nullptr), running(false), currentTime(0.0f), lastTime(0.0f), deltaTime(0.0f),
+      shader(nullptr), vao(0), vbo(0) {
 }
 
 Application::~Application() {
@@ -41,6 +42,43 @@ bool Application::initialize(int width, int height, const std::string& title) {
         // OpenGL設定の初期化
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glEnable(GL_DEPTH_TEST);
+        
+        // シェーダーの初期化
+        shader = std::make_unique<Shader>();
+        if (!shader->loadFromFile("assets/shaders/basic.vs", "assets/shaders/basic.fs")) {
+            std::cerr << "Failed to load shaders" << std::endl;
+            return false;
+        }
+        
+        // 三角形のデータ設定
+        float vertices[] = {
+            // 位置                  // 色
+            -0.5f, -0.5f, 0.0f,     1.0f, 0.0f, 0.0f,  // 左下（赤）
+             0.5f, -0.5f, 0.0f,     0.0f, 1.0f, 0.0f,  // 右下（緑）
+             0.0f,  0.5f, 0.0f,     0.0f, 0.0f, 1.0f   // 上（青）
+        };
+
+        // VAOとVBOの生成と設定
+        glGenVertexArrays(1, &vao);
+        glGenBuffers(1, &vbo);
+
+        // VAOをバインドしてからVBOとattribute設定を行う
+        glBindVertexArray(vao);
+
+        // VBOにデータをバインド
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+        // 位置属性を設定
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(0);
+
+        // 色属性を設定
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+        glEnableVertexAttribArray(1);
+
+        // VAOのバインドを解除
+        glBindVertexArray(0);
         
         // 時間の初期化
         lastTime = static_cast<float>(glfwGetTime());
@@ -82,6 +120,17 @@ void Application::run() {
 
 void Application::shutdown() {
     running = false;
+    
+    // OpenGLリソースの解放
+    if (vao != 0) {
+        glDeleteVertexArrays(1, &vao);
+        vao = 0;
+    }
+    if (vbo != 0) {
+        glDeleteBuffers(1, &vbo);
+        vbo = 0;
+    }
+    shader.reset();
     
     if (window) {
         window->shutdown();
@@ -131,8 +180,32 @@ void Application::render() {
     // 画面クリア
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
-    // レンダリング処理
-    // 現時点では実装はまだありません
+    if (shader && window) {
+        // シェーダーを使用
+        shader->use();
+        
+        // 変換行列設定
+        glm::mat4 model = glm::mat4(1.0f);
+        glm::mat4 view = glm::mat4(1.0f);
+        glm::mat4 projection = glm::mat4(1.0f);
+        
+        // view行列は少し後ろに移動（-3.0f）
+        view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
+        
+        // 投影行列（透視投影）
+        float aspectRatio = window->getAspectRatio();
+        projection = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
+        
+        // Uniform設定
+        shader->setMat4("model", model);
+        shader->setMat4("view", view);
+        shader->setMat4("projection", projection);
+        
+        // VAOをバインドして三角形を描画
+        glBindVertexArray(vao);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glBindVertexArray(0);
+    }
 }
 
 } // namespace claude_gl
