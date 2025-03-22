@@ -25,13 +25,46 @@ target_include_directories(glad PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/libs/glad-3.3/include
 )
 
-# GLFWのソースからのビルドを強制的に使用
-# セキュリティポリシーの問題を避けるため
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/libs/glfw)
+# GLFWの設定 - 静的ライブラリを使用
+if(APPLE)
+    # Mac用の静的ライブラリパスを設定
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+        # M1/M2 Mac
+        set(GLFW_LIB_PATH ${CMAKE_CURRENT_SOURCE_DIR}/libs/glfw/lib-arm64/libglfw3.a)
+    elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+        # Intel Mac
+        set(GLFW_LIB_PATH ${CMAKE_CURRENT_SOURCE_DIR}/libs/glfw/lib-x86_64/libglfw3.a)
+    else()
+        # アーキテクチャが不明な場合はユニバーサルバイナリを使用
+        set(GLFW_LIB_PATH ${CMAKE_CURRENT_SOURCE_DIR}/libs/glfw/lib-universal/libglfw3.a)
+    endif()
+    
+    # GLFWの静的ライブラリ
+    add_library(glfw STATIC IMPORTED)
+    set_target_properties(glfw PROPERTIES IMPORTED_LOCATION ${GLFW_LIB_PATH})
+    
+    # Mac用の追加フレームワーク
+    find_library(COCOA_LIBRARY Cocoa)
+    find_library(OPENGL_LIBRARY OpenGL)
+    find_library(IOKIT_LIBRARY IOKit)
+    find_library(COREVIDEO_LIBRARY CoreVideo)
+    mark_as_advanced(COCOA_LIBRARY OPENGL_LIBRARY IOKIT_LIBRARY COREVIDEO_LIBRARY)
+    set(EXTRA_LIBS ${COCOA_LIBRARY} ${OPENGL_LIBRARY} ${IOKIT_LIBRARY} ${COREVIDEO_LIBRARY})
+elseif(WIN32)
+    # Windows用の設定
+    find_package(glfw3 QUIET)
+    if(NOT glfw3_FOUND)
+        message(FATAL_ERROR "Windows用のGLFWが見つかりません")
+    endif()
+    set(EXTRA_LIBS "")
+else()
+    # Linux用の設定
+    find_package(glfw3 QUIET)
+    if(NOT glfw3_FOUND)
+        message(FATAL_ERROR "Linux用のGLFWが見つかりません")
+    endif()
+    set(EXTRA_LIBS "")
+endif()
 
 # ソースファイル収集
 file(GLOB_RECURSE SOURCES 
@@ -45,7 +78,7 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 target_link_libraries(${PROJECT_NAME} 
     glad
     glfw
-    ${CMAKE_DL_LIBS}  # Linux向けGLAD用
+    ${EXTRA_LIBS}  # Macの場合はCocoaやOpenGLなどのフレームワーク
 )
 
 # インクルードディレクトリ
