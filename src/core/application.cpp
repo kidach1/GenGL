@@ -1,7 +1,7 @@
 #include "application.h"
 #include <iostream>
 #include <stdexcept>
-#include <glad/glad.h>
+#include <glad/gl.h>
 #include <GLFW/glfw3.h>
 
 namespace claude_gl {
