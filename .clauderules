@@ -1,9 +1,9 @@
-## プロジェクト記録
-- `Context.md` ファイルにプロジェクトの進行状況、実装内容、発生した問題とその解決策を記録
-- 新しい機能を実装したり問題を解決したりするたびに、`Context.md` を更新
-- 開発セッション間での引き継ぎをスムーズにするための資料として活用
+# Claude-OpenGL 実装ルール
 
-# Claude-OpenGL プロジェクトルール
+## このファイルについて
+このファイルはAIアシスタント（Claude）のための実装指示書です。
+人間向けのドキュメントは Context.md に記載されており、
+このファイルには実装において厳守すべきルールを記載しています。
 
 ## ディレクトリ構成
 - src/: ソースコード
@@ -35,7 +35,7 @@
 - ヘッダーガード: 従来のヘッダーガードの代わりに `#pragma once` を使用
 - インクルード順序:
   1. 標準ライブラリヘッダー（例: `<vector>`, `<string>`）
-  2. 外部ライブラリヘッダー（例: `<glad/glad.h>`, `<GLFW/glfw3.h>`）
+  2. 外部ライブラリヘッダー（例: `<glad/gl.h>`, `<GLFW/glfw3.h>`）
   3. プロジェクトヘッダー（例: `"renderer/shader.h"`）
 
 ## ドキュメント
@@ -55,10 +55,22 @@
 - 例外的な状況には例外を使用
 - 予想されるエラー条件には戻り値を使用
 - デバッグビルドでは常にOpenGLエラーをチェック
+- OpenGLエラーチェックを行う場所と頻度：
+  - 各OpenGL関数呼び出し後は重いため、開発初期段階では各関数セクションの終了時にのみチェック
+  - リリースビルドでは無効化することを想定
 
 ## メモリ管理
 - 生ポインタよりもスマートポインタ(`std::unique_ptr`, `std::shared_ptr`)を優先
 - リソース管理にはRAII原則に従う
+- OpenGLリソース（バッファ、テクスチャ、シェーダーなど）は必ずデストラクタで解放
+
+## OpenGL固有のルール
+- OpenGLコンテキストが有効な状態でのみOpenGL関数を呼び出す
+- VAOをバインドしてからVBO/EBOを設定する
+- シェーダーをuse()してからuniformを設定する
+- テクスチャはbind()してから使用し、使用後はunbind()する
+- OpenGLリソースのIDは0で初期化し、IDが0でない場合のみ削除処理を行う
+- 深度テストやブレンディングなどの状態変更は必要な時だけ行い、使用後は元の状態に戻す
 
 ## ビルドシステム
 - プロジェクト設定にはCMakeを使用
@@ -67,12 +79,17 @@
 
 ## 設計原則
 - 設計は再帰的に検討し、定期的に精度を向上させる
-- 設計の更新は.clauderulesに追記していく
 - 単一責任の原則（SRP）に従い、各クラスは単一の責任を持つ
 - 依存性の逆転原則を適用し、上位モジュールは下位モジュールに依存しない
 - プログラム対インターフェイスの原則を守り、具体的な実装ではなくインターフェイスに依存する
 - 拡張性を考慮した設計を心掛ける
 - パフォーマンスクリティカルな部分では最適化を検討するが、早すぎる最適化は避ける
+
+## 例外と実装の注意点
+- 開発初期段階では、レンダリングコードをApplicationクラスに直接記述することを許容するが、最終的にはRenderer専用クラスに移行する
+- 一時的なコードを記述する場合は必ずTODOコメントを残し、将来の修正計画を記録する
+- シェーダー読み込みエラーは詳細なデバッグ情報を出力し、開発者がシェーダーの問題を特定しやすくする
+- ルールに従えない場合や例外的な実装を行う場合は、必ずユーザーに通知し、その理由と将来の修正計画を説明する
 
 ## Gitワークフロー
 - 一つの実装が終わるたびにコミットを行う
@@ -86,412 +103,32 @@
 - 機能実装は個別のブランチで行い、完成後にメインブランチにマージする
 - コミット前にコードの動作確認を行う
 
-## プロジェクト設計
+## 実装チェックリスト
+各実装を完了する前に以下の項目を確認する：
+- [ ] コードスタイルがルールに準拠しているか
+- [ ] 適切なエラー処理が実装されているか
+- [ ] OpenGLリソースが適切に管理されているか
+- [ ] メモリリークがないか
+- [ ] パフォーマンス上の問題がないか
+- [ ] 設計原則に従っているか
+- [ ] ルールに従えない例外がある場合、ユーザーに通知したか
 
-### アーキテクチャ概要
+## プロジェクトアーキテクチャ
 プロジェクトは以下の主要コンポーネントで構成される：
 
-1. **コアシステム**
-   - アプリケーション全体を管理する中心的システム
-   - アプリケーションライフサイクルとメインループを管理
-   - 他のサブシステムを調整し統合
+1. **コアシステム**: アプリケーション全体を管理
+2. **ウィンドウ管理**: GLFWを使用したウィンドウ操作
+3. **入力管理**: キーボード、マウス入力の処理
+4. **レンダリングシステム**: OpenGLレンダリングパイプライン管理
+5. **リソース管理**: アセットの読み込みと管理
+6. **カメラシステム**: 3D空間でのカメラ操作
+7. **ユーティリティ**: ログ記録、パフォーマンスモニタリングなど
 
-2. **ウィンドウ管理**
-   - GLFWを使用したウィンドウ管理
-   - リサイズ、フルスクリーン切替え等の処理
-   - ウィンドウ関連イベントの処理
+## 実装段階
+1. **基盤セットアップ**（Window, Application, Shader）
+2. **基本レンダリング**（Mesh, Texture, 三角形描画）
+3. **カメラと入力管理**（Camera, InputManager）
+4. **リソース管理**（ResourceManager, Model）
+5. **高度な機能**（光源、影、ポストプロセス）
 
-3. **入力管理**
-   - キーボード、マウス入力の処理
-   - キーバインディングと入力マッピング
-   - 入力状態の追跡と管理
-
-4. **レンダリングシステム**
-   - OpenGLレンダリングパイプラインの管理
-   - シェーダー、メッシュ、テクスチャ等の管理
-   - レンダリング状態と設定の管理
-
-5. **リソース管理**
-   - アセット（シェーダー、テクスチャ、モデル）の読み込みと管理
-   - リソースキャッシング
-   - メモリ管理とリソースの解放
-
-6. **カメラシステム**
-   - 3D空間でのカメラ操作
-   - 視点行列と投影行列の管理
-   - カメラの移動と回転
-
-7. **ユーティリティ**
-   - ログ記録機能
-   - パフォーマンスモニタリング
-   - 数学ユーティリティ（GLMを活用）
-
-### コアクラス設計
-
-#### Application
-```cpp
-class Application {
-public:
-    Application();
-    ~Application();
-    
-    bool initialize();
-    void run();
-    void shutdown();
-    
-    // 他システムへのアクセス用メソッド
-    Window* getWindow();
-    InputManager* getInputManager();
-    Renderer* getRenderer();
-    ResourceManager* getResourceManager();
-    
-    // アプリケーションステート管理
-    void setRunning(bool running);
-    bool isRunning() const;
-    
-    // アプリケーション時間管理
-    float getDeltaTime() const;
-    float getTime() const;
-    
-    // シングルトンアクセス
-    static Application& getInstance();
-    
-private:
-    // メインシステムコンポーネント
-    std::unique_ptr<Window> window;
-    std::unique_ptr<InputManager> inputManager;
-    std::unique_ptr<Renderer> renderer;
-    std::unique_ptr<ResourceManager> resourceManager;
-    
-    // アプリケーション状態
-    bool running;
-    
-    // 時間管理
-    float currentTime;
-    float lastTime;
-    float deltaTime;
-    
-    // メインループ実装
-    void processInput();
-    void update();
-    void render();
-    
-    // シングルトン実装
-    static Application* instance;
-};
-```
-
-#### Window
-```cpp
-class Window {
-public:
-    Window(int width, int height, const std::string& title);
-    ~Window();
-    
-    bool initialize();
-    void shutdown();
-    
-    // ウィンドウ状態管理
-    void update();
-    bool shouldClose() const;
-    void setShouldClose(bool shouldClose);
-    
-    // サイズと位置
-    void setSize(int width, int height);
-    void getSize(int& width, int& height) const;
-    void setPosition(int x, int y);
-    void getPosition(int& x, int& y) const;
-    float getAspectRatio() const;
-    
-    // フルスクリーン管理
-    void setFullscreen(bool fullscreen);
-    bool isFullscreen() const;
-    
-    // GLFWウィンドウアクセサ
-    GLFWwindow* getHandle() const;
-    
-    // フレームバッファ管理
-    void swapBuffers();
-    
-private:
-    // GLFWウィンドウハンドル
-    GLFWwindow* window;
-    
-    // ウィンドウプロパティ
-    int width;
-    int height;
-    std::string title;
-    bool fullscreen;
-    
-    // ウィンドウイベントコールバック設定
-    static void framebufferSizeCallback(GLFWwindow* window, int width, int height);
-    static void windowCloseCallback(GLFWwindow* window);
-    static void windowFocusCallback(GLFWwindow* window, int focused);
-};
-```
-
-#### InputManager
-```cpp
-class InputManager {
-public:
-    InputManager(Window* window);
-    ~InputManager();
-    
-    void initialize();
-    void update();
-    
-    // キーボード入力
-    bool isKeyPressed(int key) const;
-    bool isKeyDown(int key) const;
-    bool isKeyReleased(int key) const;
-    
-    // マウス入力
-    bool isMouseButtonPressed(int button) const;
-    bool isMouseButtonDown(int button) const;
-    bool isMouseButtonReleased(int button) const;
-    
-    // マウス位置と動き
-    void getMousePosition(double& x, double& y) const;
-    void getMouseMovement(double& x, double& y) const;
-    double getMouseScrollDelta() const;
-    
-    // カーソル管理
-    void setCursorVisible(bool visible);
-    bool isCursorVisible() const;
-    
-private:
-    // 親ウィンドウへの参照
-    Window* window;
-    
-    // キー状態追跡
-    std::array<bool, GLFW_KEY_LAST + 1> currentKeys;
-    std::array<bool, GLFW_KEY_LAST + 1> previousKeys;
-    
-    // マウスボタン状態追跡
-    std::array<bool, GLFW_MOUSE_BUTTON_LAST + 1> currentMouseButtons;
-    std::array<bool, GLFW_MOUSE_BUTTON_LAST + 1> previousMouseButtons;
-    
-    // マウス位置追跡
-    double currentMouseX, currentMouseY;
-    double previousMouseX, previousMouseY;
-    double mouseScrollDelta;
-    bool cursorVisible;
-    
-    // コールバック関数
-    static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
-    static void cursorPositionCallback(GLFWwindow* window, double xpos, double ypos);
-    static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
-    static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
-};
-```
-
-#### Shader
-```cpp
-class Shader {
-public:
-    Shader();
-    ~Shader();
-    
-    // シェーダーロードとコンパイル
-    bool loadFromFile(const std::string& vertexPath, const std::string& fragmentPath);
-    bool loadFromString(const std::string& vertexSource, const std::string& fragmentSource);
-    
-    // シェーダー使用
-    void use() const;
-    void unuse() const;
-    
-    // ユニフォーム操作
-    void setBool(const std::string& name, bool value) const;
-    void setInt(const std::string& name, int value) const;
-    void setFloat(const std::string& name, float value) const;
-    void setVec2(const std::string& name, const glm::vec2& value) const;
-    void setVec3(const std::string& name, const glm::vec3& value) const;
-    void setVec4(const std::string& name, const glm::vec4& value) const;
-    void setMat2(const std::string& name, const glm::mat2& value) const;
-    void setMat3(const std::string& name, const glm::mat3& value) const;
-    void setMat4(const std::string& name, const glm::mat4& value) const;
-    
-    // シェーダープログラムID
-    unsigned int getId() const;
-    
-private:
-    // シェーダープログラムID
-    unsigned int programId;
-    
-    // シェーダーコンパイルユーティリティ
-    bool compileShader(unsigned int& shader, GLenum type, const std::string& source);
-    bool linkProgram(unsigned int vertexShader, unsigned int fragmentShader);
-    void checkCompileErrors(unsigned int shader, const std::string& type);
-};
-```
-
-#### Mesh
-```cpp
-class Mesh {
-public:
-    struct Vertex {
-        glm::vec3 position;
-        glm::vec3 normal;
-        glm::vec2 texCoords;
-    };
-    
-    Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices);
-    ~Mesh();
-    
-    // メッシュレンダリング
-    void draw(const Shader& shader) const;
-    
-    // メッシュデータアクセス
-    const std::vector<Vertex>& getVertices() const;
-    const std::vector<unsigned int>& getIndices() const;
-    
-private:
-    // メッシュデータ
-    std::vector<Vertex> vertices;
-    std::vector<unsigned int> indices;
-    
-    // OpenGLオブジェクト
-    unsigned int VAO, VBO, EBO;
-    
-    // バッファ初期化
-    void setupMesh();
-};
-```
-
-#### Texture
-```cpp
-class Texture {
-public:
-    enum class Type {
-        DIFFUSE,
-        SPECULAR,
-        NORMAL,
-        HEIGHT
-    };
-    
-    Texture();
-    ~Texture();
-    
-    // テクスチャロード
-    bool loadFromFile(const std::string& path, bool generateMipmaps = true);
-    
-    // テクスチャ使用
-    void bind(unsigned int textureUnit = 0) const;
-    void unbind() const;
-    
-    // テクスチャ情報
-    unsigned int getId() const;
-    int getWidth() const;
-    int getHeight() const;
-    int getChannels() const;
-    Type getType() const;
-    void setType(Type type);
-    
-private:
-    // OpenGLテクスチャID
-    unsigned int textureId;
-    
-    // テクスチャプロパティ
-    int width;
-    int height;
-    int channels;
-    Type type;
-};
-```
-
-#### Camera
-```cpp
-class Camera {
-public:
-    enum class ProjectionType {
-        PERSPECTIVE,
-        ORTHOGRAPHIC
-    };
-    
-    Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f),
-          glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f),
-          float yaw = -90.0f,
-          float pitch = 0.0f);
-    
-    // カメラ操作
-    void setPosition(const glm::vec3& position);
-    glm::vec3 getPosition() const;
-    void setRotation(float yaw, float pitch);
-    
-    // カメラ移動
-    void move(const glm::vec3& offset);
-    void rotate(float yawOffset, float pitchOffset);
-    
-    // カメラ設定
-    void setFov(float fov);
-    float getFov() const;
-    void setNearPlane(float nearPlane);
-    float getNearPlane() const;
-    void setFarPlane(float farPlane);
-    float getFarPlane() const;
-    void setAspectRatio(float aspectRatio);
-    float getAspectRatio() const;
-    
-    // 投影タイプ
-    void setProjectionType(ProjectionType type);
-    ProjectionType getProjectionType() const;
-    
-    // 行列取得
-    glm::mat4 getViewMatrix() const;
-    glm::mat4 getProjectionMatrix() const;
-    
-    // カメラベクトル取得
-    glm::vec3 getFront() const;
-    glm::vec3 getRight() const;
-    glm::vec3 getUp() const;
-    
-private:
-    // カメラ位置と向き
-    glm::vec3 position;
-    glm::vec3 front;
-    glm::vec3 up;
-    glm::vec3 right;
-    glm::vec3 worldUp;
-    
-    // オイラー角
-    float yaw;
-    float pitch;
-    
-    // カメラパラメータ
-    float fov;
-    float aspectRatio;
-    float nearPlane;
-    float farPlane;
-    ProjectionType projectionType;
-    
-    // カメラベクトル更新
-    void updateCameraVectors();
-};
-```
-
-### 実装フェーズ
-
-1. **基盤セットアップ**
-   - ウィンドウ生成とOpenGLコンテキスト初期化
-   - メインアプリケーションクラスの実装
-   - 基本的なシェーダークラス実装
-
-2. **基本レンダリング**
-   - メッシュ、テクスチャクラス実装
-   - 始めての三角形レンダリング
-   - 基本的な光源実装
-
-3. **カメラと入力管理**
-   - カメラクラスの実装
-   - 入力管理クラスの実装
-   - カメラ操作の実装
-
-4. **リソース管理**
-   - リソース管理クラスの実装
-   - モデルロード機能の実装
-   - シェーダーキャッシングの実装
-
-5. **高度な機能**
-   - 複数光源と影の実装
-   - ポストプロセスエフェクト
-   - パフォーマンス最適化
+各段階で、完了したら必ず `Context.md` を更新し、進捗と発生した問題、その解決策を記録すること。
