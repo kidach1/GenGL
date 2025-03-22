@@ -40,7 +40,7 @@ bool Application::initialize(int width, int height, const std::string& title) {
         });
         
         // OpenGL設定の初期化
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClearColor(0.7f, 0.8f, 0.9f, 1.0f); // 薄い青みがかったグレーに変更
         glEnable(GL_DEPTH_TEST);
         
         // シェーダーの初期化
@@ -160,25 +160,28 @@ void Application::render() {
         shader->use();
         
         // カメラとライトの設定
-        glm::vec3 viewPos(0.0f, 0.0f, 10.0f); // teapot表示用にカメラを適切な距離に配置
-        glm::vec3 lightPos(1.0f, 1.0f, 2.0f);
+        glm::vec3 viewPos(5.0f, 8.0f, 12.0f); // モデルの斜め上から見下ろす位置に調整
+        // ライト位置もカメラ位置に合わせて調整
+        glm::vec3 lightPos(5.0f, 10.0f, 5.0f);
         glm::vec3 lightColor(1.0f, 1.0f, 1.0f);
-        glm::vec3 objectColor(0.5f, 0.5f, 0.5f);
+        // オブジェクトの色を濃めにして背景とのコントラストを上げる
+        glm::vec3 objectColor(0.3f, 0.3f, 0.35f);
         
         // ライト関連の設定（Phongシェーディング用）
         shader->setVec3("viewPos", viewPos);
         shader->setVec3("lightPos", lightPos);
         shader->setVec3("lightColor", lightColor);
         shader->setVec3("objectColor", objectColor);
-        shader->setFloat("ambientStrength", 0.1f);
+        // 環境光を明るくしてモデルが見やすくなるように調整
+        shader->setFloat("ambientStrength", 0.3f);
         shader->setFloat("specularStrength", 0.5f);
         shader->setInt("shininess", 32);
         
-        // 変換行列設定
+        // 変換行列設定 - カメラがモデルのマイナスY方向を見るように調整
         glm::mat4 view = glm::lookAt(
             viewPos,                      // カメラ位置
-            glm::vec3(0.0f, 0.0f, 0.0f),  // 注視点
-            glm::vec3(0.0f, 1.0f, 0.0f)   // 上方向
+            glm::vec3(0.0f, -1.0f, 0.0f),  // 注視点を少し下に設定
+            glm::vec3(0.0f, 1.0f, 0.0f)    // 上方向
         );
         
         // 投影行列（透視投影）
@@ -191,10 +194,13 @@ void Application::render() {
         
         // モデルの描画
         
-        // teapotの設定調整 - 初期回転を加えて風景を見やすくする
+        // teapotの設定調整 - 新しいカメラアングルに合わせて初期回転を調整
         glm::mat4 initialTransform = glm::mat4(1.0f);
-        // X軸に少し回転してティーポットの口が見えるようにする
-        initialTransform = glm::rotate(initialTransform, glm::radians(-30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        // X軸周りに回転させ、ティーポットの上部が見えるように調整
+        initialTransform = glm::rotate(initialTransform, glm::radians(-10.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        
+        // モデルスケールも適切な大きさに合わせる
+        initialTransform = glm::scale(initialTransform, glm::vec3(0.8f, 0.8f, 0.8f));
         
         // 現在のモデル行列と組み合わせる
         glm::mat4 modelMatrix = initialTransform * model->getModelMatrix();
