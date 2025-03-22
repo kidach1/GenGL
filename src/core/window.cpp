@@ -55,8 +55,9 @@ bool Window::initialize() {
     // 現在のコンテキストに設定
     glfwMakeContextCurrent(window);
     
-    // GLADの初期化（OpenGL関数ポインタのロード）
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+    // gladの初期化（OpenGL関数ポインタのロード）
+    int glad_version = gladLoadGL(glfwGetProcAddress);
+    if (glad_version == 0) {
         std::cerr << "Failed to initialize GLAD" << std::endl;
         glfwDestroyWindow(window);
         glfwTerminate();
