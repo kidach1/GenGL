@@ -94,36 +94,34 @@ void Model::processObjFile(const std::string& filepath) {
         }
         else if (prefix == "f") {
             // 面情報（頂点インデックス）
-            std::string vertex;
+            std::string v1, v2, v3;
+            iss >> v1 >> v2 >> v3;
             
-            // OBJファイルのf行は次のフォーマットのいずれかで記述されている：
-            // f v1 v2 v3 ... （位置のみ）
-            // f v1/vt1 v2/vt2 v3/vt3 ... （位置とテクスチャ座標）
-            // f v1//vn1 v2//vn2 v3//vn3 ... （位置と法線）
-            // f v1/vt1/vn1 v2/vt2/vn2 v3/vt3/vn3 ... （位置、テクスチャ座標、法線）
-            
-            // 簡易実装: まず3つの頂点を処理（三角形の各頂点）
-            for (int i = 0; i < 3; i++) {
-                iss >> vertex;
-                
+            std::array<std::string, 3> vertexData = { v1, v2, v3 };
+            for (const auto& vertex : vertexData) {
                 // 頂点情報を「/」で分割
-                std::replace(vertex.begin(), vertex.end(), '/', ' ');
-                std::istringstream viss(vertex);
+                std::vector<std::string> tokens;
+                std::istringstream tokenStream(vertex);
+                std::string token;
                 
-                unsigned int posIndex = 0, texIndex = 0, normIndex = 0;
-                
-                // 位置インデックスは必須
-                viss >> posIndex;
-                posIndex--; // OBJファイルは1から始まるインデックスだが、C++は0から
-                
-                // テクスチャ座標インデックス（存在する場合）
-                if (viss >> texIndex) {
-                    texIndex--;
+                while (std::getline(tokenStream, token, '/')) {
+                    tokens.push_back(token);
                 }
                 
-                // 法線インデックス（存在する場合）
-                if (viss >> normIndex) {
-                    normIndex--;
+                // OBJファイルのフォーマットに応じて処理
+                // f v1/vt1/vn1 v2/vt2/vn2 v3/vt3/vn3
+                unsigned int posIndex = 0, texIndex = 0, normIndex = 0;
+                
+                if (tokens.size() >= 1 && !tokens[0].empty()) {
+                    posIndex = std::stoi(tokens[0]) - 1; // OBJファイルは1から始まるインデックス
+                }
+                
+                if (tokens.size() >= 2 && !tokens[1].empty()) {
+                    texIndex = std::stoi(tokens[1]) - 1;
+                }
+                
+                if (tokens.size() >= 3 && !tokens[2].empty()) {
+                    normIndex = std::stoi(tokens[2]) - 1;
                 }
                 
                 Mesh::Vertex meshVertex;
@@ -158,6 +156,9 @@ void Model::processObjFile(const std::string& filepath) {
     // 読み込んだデータからメッシュを作成
     if (!vertices.empty() && !indices.empty()) {
         meshes.push_back(std::make_shared<Mesh>(vertices, indices));
+        std::cout << "Loaded mesh with " << vertices.size() << " vertices and " 
+                  << indices.size() << " indices from " << filepath << std::endl;
+        std::cout << "Normals count in OBJ: " << normals.size() << std::endl;
     }
     else {
         std::cerr << "Warning: No geometry data loaded from " << filepath << std::endl;
