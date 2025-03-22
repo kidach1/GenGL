@@ -25,45 +25,13 @@ target_include_directories(glad PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/libs/glad-3.3/include
 )
 
-# GLFWの設定
-if(APPLE)
-    # Mac用のライブラリパスを設定
-    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
-        # M1/M2 Mac
-        set(GLFW_LIB_PATH ${CMAKE_CURRENT_SOURCE_DIR}/libs/glfw/lib-arm64/libglfw.3.dylib)
-    elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-        # Intel Mac
-        set(GLFW_LIB_PATH ${CMAKE_CURRENT_SOURCE_DIR}/libs/glfw/lib-x86_64/libglfw.3.dylib)
-    else()
-        # アーキテクチャが不明な場合はユニバーサルバイナリを使用
-        set(GLFW_LIB_PATH ${CMAKE_CURRENT_SOURCE_DIR}/libs/glfw/lib-universal/libglfw.3.dylib)
-    endif()
-    
-    # GLFWのライブラリ
-    add_library(glfw SHARED IMPORTED)
-    set_target_properties(glfw PROPERTIES IMPORTED_LOCATION ${GLFW_LIB_PATH})
-elseif(WIN32)
-    # Windows用の設定
-    find_package(glfw3 QUIET)
-    if(NOT glfw3_FOUND)
-        # Windowsでは、ソースからビルドする場合の設定
-        message(STATUS "GLFW not found. Building from source...")
-        set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-        set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-        set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-        add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/libs/glfw)
-    endif()
-else()
-    # Linuxなど他のプラットフォーム用の設定
-    find_package(glfw3 QUIET)
-    if(NOT glfw3_FOUND)
-        message(STATUS "GLFW not found. Building from source...")
-        set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-        set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-        set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-        add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/libs/glfw)
-    endif()
-endif()
+# GLFWのソースからのビルドを強制的に使用
+# セキュリティポリシーの問題を避けるため
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/libs/glfw)
 
 # ソースファイル収集
 file(GLOB_RECURSE SOURCES 
